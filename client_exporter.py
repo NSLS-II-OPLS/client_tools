@@ -65,7 +65,7 @@ def metadata_to_attribute(metadata):
     return attr_dict
 
 
-async def walk(node, pre=None):
+def walk(node, pre=None):
     """
     Yield (key_path, value) where each value is an ArrayAdapter.
 
@@ -114,6 +114,6 @@ if __name__ == "__main__":
     scan_ids = sys.argv[1:]
     
     results = client.search(ScanID(*scan_ids))
-    results.export("test_hdf5.h5")
+    export(results, "test_hdf5.h5")
     print("Done")
 
