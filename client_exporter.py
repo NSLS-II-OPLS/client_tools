@@ -10,6 +10,8 @@ import sys
 def _serialize_special_types(obj):
     if isinstance(obj, datetime.datetime):
         return obj.isoformat()
+    elif obj is None:
+        return "None"
     else:
         return obj
 
@@ -19,22 +21,21 @@ def _iter_list(attr_dict, meta_list, iter_key):
     for i in range(len(meta_list)):
         node_key = list_iter_key + str(i)
         if isinstance(meta_list[i], dict):
-            attr_dict = _iter_dictionary(attr_dict, meta_list[i], node_key+".")
+            attr_dict = _iter_dictionary(attr_dict, meta_list[i], node_key + ".")  # noqa: E501
         elif isinstance(meta_list[i], list):
-            attr_dict = _iter_list(attr_dict, meta_list[i], node_key+".")
+            attr_dict = _iter_list(attr_dict, meta_list[i], node_key + ".")
         else:
             attr_dict[node_key] = _serialize_special_types(meta_list[i])
     return attr_dict
 
 
 def _iter_dictionary(attr_dict, metadata, iter_key=""):
-
     next_iter_key = iter_key
     for key, value in metadata.items():
         if isinstance(value, dict):
-            attr_dict = _iter_dictionary(attr_dict, value, next_iter_key+key+".")
+            attr_dict = _iter_dictionary(attr_dict, value, next_iter_key + key + ".")  # noqa: E501
         elif isinstance(value, list):
-            attr_dict = _iter_list(attr_dict, value, next_iter_key+key+".")
+            attr_dict = _iter_list(attr_dict, value, next_iter_key + key + ".")
         else:
             node_key = next_iter_key + key
             attr_dict[node_key] = _serialize_special_types(value)
@@ -44,8 +45,9 @@ def _iter_dictionary(attr_dict, metadata, iter_key=""):
 
 def metadata_to_attribute(metadata):
     """
-    This method receives some metadata in the form of a nested dictionary and converts it into a flattened version 
-    of itself to make it compatible with HDF5 standard for an attribute object.
+    This method receives some metadata in the form of a nested dictionary and
+    converts it into a flattened version of itself to make it compatible with
+    HDF5 standard for an attribute object.
 
     Parameters
     ----------
@@ -78,7 +80,7 @@ def walk(node, pre=None):
     ]
     """
     pre = pre[:] if pre else []
-    if node.item['attributes']['structure_family'] != StructureFamily.array:
+    if node.item["attributes"]["structure_family"] != StructureFamily.array:
         for key, value in node.items():
             for d in walk(value, pre + [key]):
                 yield d
@@ -87,7 +89,6 @@ def walk(node, pre=None):
 
 
 def export(node, filepath):
-    
     root_node = node
     with h5py.File(filepath, mode="w") as file:
         file.attrs.update(metadata_to_attribute(node.metadata))
@@ -102,18 +103,18 @@ def export(node, filepath):
                     group = group.create_group(key)
                     group.attrs.update(metadata_to_attribute(node.metadata))
             data = array_client.read()
-            dataset = group.create_dataset(key_path[-1], data=data)
+            if data.dtype.kind == "U":
+                data = data.astype("S")
+            dataset = group.create_dataset(key_path[-1], data=data.tolist())
             for k, v in metadata_to_attribute(array_client.metadata).items():
                 dataset.attrs.create(k, v)
 
 
 if __name__ == "__main__":
-    
     client = from_uri("https://tiled.nsls2.bnl.gov/api/v1/metadata/opls/raw")
     # print(f'{client.context.whoami()}')
     scan_ids = sys.argv[1:]
-    
+
     results = client.search(ScanID(*scan_ids))
     export(results, "test_hdf5.h5")
     print("Done")
-
