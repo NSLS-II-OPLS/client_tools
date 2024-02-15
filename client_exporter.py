@@ -5,6 +5,7 @@ from tiled.structures.core import StructureFamily
 import datetime
 import h5py
 import sys
+import warnings
 
 
 def _serialize_special_types(obj):
@@ -102,7 +103,10 @@ def export(node, filepath):
                 else:
                     group = group.create_group(key)
                     group.attrs.update(metadata_to_attribute(node.metadata))
-            data = array_client.read()
+            try:
+                data = array_client.read()
+            except:
+                warnings.warn(f"Could not read path: {key_path}")
             if data.dtype.kind == "U":
                 data = data.astype("S")
             dataset = group.create_dataset(key_path[-1], data=data.tolist())
